@@ -1,0 +1,56 @@
+\documentclass[10pt]{article}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage[margin=1.8cm]{geometry}
+
+\setlength{\parskip}{0.4em}
+\setlength{\parindent}{0pt}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue},
+  commentstyle=\color{gray},
+  stringstyle=\color{orange},
+  frame=single,
+  numbers=left,
+  numberstyle=\tiny, 
+  breaklines=true,
+  captionpos=b
+}
+
+\title{PRAC4 : Matrix Multiplication}
+\author{DIETZ T., JABER A., DONNENFELD T.}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Step 1: Theoretical Analysis}
+
+\subsection{Iterative version}
+
+To split the work in a equal number of multiplications per thread in the Iterative version
+we simply parallelize the computation of rows of the output matrix.
+
+There are no data dependencies between rows for matrix multiplication so if we have a N square matrix and 2 threads,
+first thread computes rows 1 - N/2, second thread computes rows (N/2)+1 - N.
+
+We generalize for k threads by partitionning rows :
+\begin{itemize}
+\item 1 - N/k  
+\item (N/k)+1 - 2N/k
+\item ...
+\item (k-1)*(N/k)+1 - N
+\end{itemize}
+
+In this case, each thread reads N/k rows from A and all values from the B matrix. They write on the same indexes N/k rows of C. 
+
+\subsection{Divide and Conquer}
+
+Using divide and conquer : number of tasks and possible concurrent tasks are dependant on the number of matrix splits.
+
+We can get that number of splits with the formula : s = log2(N/DQSZ).
+
+\end{document}

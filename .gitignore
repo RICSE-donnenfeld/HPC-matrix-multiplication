@@ -1,0 +1,3 @@
+aux/
+report/*
+!report/report.tex

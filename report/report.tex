@@ -39,10 +39,10 @@ first thread computes rows 1 - N/2, second thread computes rows (N/2)+1 - N.
 
 We generalize for k threads by partitionning rows :
 \begin{itemize}
-\item 1 - N/k  
-\item (N/k)+1 - 2N/k
+\item 1 to N/k  
+\item (N/k)+1 to 2N/k
 \item ...
-\item (k-1)*(N/k)+1 - N
+\item (k-1)*(N/k)+1 to N
 \end{itemize}
 
 In this case, each thread reads N/k rows from A and all values from the B matrix. They write on the same indexes N/k rows of C. 
@@ -52,5 +52,10 @@ In this case, each thread reads N/k rows from A and all values from the B matrix
 Using divide and conquer : number of tasks and possible concurrent tasks are dependant on the number of matrix splits.
 
 We can get that number of splits with the formula : s = log2(N/DQSZ).
+
+Each created task will generate eight new tasks at next split.
+If we look at the first values : 8 tasks are created for the first split, then each of these 8 tasks create 8 tasks : 64 new tasks adding to the existing 8 ones.
+
+
 
 \end{document}

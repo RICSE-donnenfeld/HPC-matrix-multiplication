@@ -1,10 +1,10 @@
 \documentclass[10pt]{article}
 \usepackage{graphicx}
 \usepackage{listings}
-\usepackage{svg}
 \usepackage{xcolor}
 \usepackage[margin=1.8cm]{geometry}
 \usepackage{tikz}
+
 \usetikzlibrary{arrows.meta, positioning}
 
 \setlength{\parskip}{0.4em}
@@ -42,18 +42,8 @@ Matrix multiplication has no data dependencies between rows of $C$ because:
 C[i,j] = \sum_{k=0}^{N-1} A[i,k]\,B[k,j],
 \]
 
-and each row of $C$ depends only on a single row of $A$ and all of $B$.
 
-With $k$ threads, we partition rows into $k$ blocks:
-
-\[
-\text{Thread } t: 
-\qquad
-\text{rows } 
-\frac{(t-1)N}{k}+1 
-\;\text{to}\;
-\frac{tN}{k}.
-\]
+With $k$ threads, we partition rows of C into $k$ blocks
 
 Each thread:
 \begin{itemize}
@@ -64,40 +54,30 @@ Each thread:
 
 This gives perfect load balance if matrix has data evenly distributed across its rows and columns and no race conditions.
 
+In particular for two threads:
+
+\includegraphics[scale=0.40]{../out/matmul_2_threads_schema.jpeg}
+
 \subsection{Divide and Conquer Version}
 
 The recursive version repeatedly divides the problem into 8 independent
 subproblems of size $\frac{SZ}{2}\times \frac{SZ}{2}$ until the base-case size
 $DQSZ$ is reached.
 
-Let
+By analogy with the same 1 dimension problem : we find the number of required splits steps $n$ = $\log_2\!\left(\frac{N}{DQSZ}\right)$ 
 
-\[
-s = \log_2\!\left(\frac{N}{DQSZ}\right)
-\]
 
-be the recursion depth.
+At recursion level $i$, the number of tasks is 8^{\,i}
 
-At recursion level $i$, the number of tasks is:
+The total number of tasks is the sum of the terms of the previous geometric sequence, n being the max number of splits seen above.
+Therefore : 
+T = \sum_{i=1}^{n} 8^{\,i}
+  = \frac{8^{\,n+1} - 8}{7}.
 
-\[
-\text{\#tasks at level } i = 8^{\,i}.
-\]
 
-The total number of tasks is:
+The maximum concurrency is the number of "leaf" tasks when all tasks have been created: 8^{\,s}
 
-\[
-T = \sum_{i=1}^{s} 8^{\,i}
-  = \frac{8^{\,s+1} - 8}{7}.
-\]
-
-The maximum concurrency (width of the recursion tree at the deepest level) is:
-
-\[
-\text{Max concurrency} = 8^{\,s}.
-\]
-
-\subsubsection*{TikZ Task Graph Example ($N=1024$, $DQSZ=512$)}
+\subsubsection*{Case for $N=1024$, $DQSZ=512$}
 
 Here $s = \log_2(1024/512)=1$, so only one level of recursion.
 
@@ -121,7 +101,6 @@ child { node[task]{512} };
 \end{tikzpicture}
 \end{center}
 
-\subsubsection*{$N=1024$, $DQSZ=512$}
 
 
 \[
@@ -134,10 +113,8 @@ T = 8,
 
 \subsubsection*{Memory Access per Task}
 
-At each level, the 8 subproblems read and write in disjoint
-quadrants of the matrices $A$, $B$, and $C$, so no task writes to the
-same region of $C$.
-
+We have to be careful with the tasks : sums and products of $A$ and $B$ submatrices can run in parallel,
+but these results have to be added two by two to form submatrices of $C$ : this causes values in $C$ to be accessed by two tasks possibly at the same time. 
 
 \section{Step 2: Practical Parallel Implementation}
 
@@ -178,7 +155,6 @@ We parallelize the recursion using OpenMP tasks:
 }
 \end{lstlisting}
 
-
 \section{Step 3: Performance Analysis}
 
 We benchmarked $N=2048$ for a range of thread counts and $DQSZ$ values.  
@@ -194,22 +170,24 @@ Counters collected using \texttt{perf stat}:
 \subsection{Heatmap 1: Execution Time}
 
 \begin{center}
-  \includesvg[width=0.90\linewidth]{./../out/time_vs_threads.svg}
+  \includegraphics[width=0.55\linewidth]{../out/duration_time_heatmap_log_all.pdf}
 \end{center}
 
 Observations:
 \begin{itemize}
-    \item Large $DQSZ$ (e.g., 512–2048) yields poor performance, as the
-    unblocked kernel does not fit in cache.
-    \item $DQSZ=8$ or $DQSZ=16$ produce the best runtimes.
-    \item These small blocks fit entirely in L1 cache and generate well-balanced
-    task trees.
+    \item Large and very small $DQSZ$ (4, 8, 2048) yields very poor performance
+    \item Single threaded runs yield very poor performance
+    \item $DQSZ=64$ or $DQSZ=128$ produce the best runtimes.
+    \item There seem to be a special increase in performance if the number of thread is a multiple of 4
+          (looking at nb threads=6 in the graph)
 \end{itemize}
+
+This graph shows the overall best configurations for this problem on the machine.
 
 \subsection{Heatmap 2: Speedup (vs same-$DQSZ$, single-thread)}
 
 \begin{center}
-\includegraphics[width=0.90\linewidth]{./../out/speedup_heatmap.svg}
+  \includegraphics[width=0.55\linewidth]{../out/speedup_heatmap.pdf}
 \end{center}
 
 Interpretation:
@@ -221,58 +199,24 @@ Interpretation:
     threads busy.
 \end{itemize}
 
+This graph explains that for some DQSZ we take much more advantage of parallelism,
+but doesn't prove that global execution time is better ( memory bandwidth limitations). 
+
 \subsection{Heatmap 3: Cache Misses per Instruction}
 
 \begin{center}
-\includegraphics[width=0.90\linewidth]{./../out/cachemiss_perinst_heatmap.svg}
+  \includegraphics[width=0.55\linewidth]{../out/cachemiss_perinst_heatmap.pdf}
 \end{center}
 
-This metric highlights the core reason behind the performance trends:
+Interpretation :
 
 \begin{itemize}
     \item Cache misses per instruction are minimal for $DQSZ=8$ and $DQSZ=16$.
-    \item Their working sets fit inside L1 cache, allowing excellent locality.
+    \item Their working sets fit inside caches ( L1/L2 ?)
     \item Larger $DQSZ$ values overflow L1/L2 and drastically increase miss rate.
 \end{itemize}
 
-
-\section{Step 4: Additional Optimizations}
-
-\subsection{Loop Interchange}
-
-Loop interchange improves spatial locality in $B$ by ensuring that inner loops
-traverse memory in row-major order. This reduces cache misses for $N=2048$ and
-$N=4096$.
-
-\subsection{Register Blocking}
-
-The 2×2 kernel retains $A$ and $B$ elements in registers long enough to compute
-two output rows at a time. This greatly reduces memory bandwidth pressure.
-
-Combined, these optimizations provide a substantial speedup for both the
-iterative and recursive versions.
-
-
-\section{Conclusion}
-
-By systematically varying thread count and $DQSZ$, and by collecting hardware
-performance counters, we identified the optimal configuration for matrix
-multiplication on our system.
-
-Key findings:
-\begin{itemize}
-    \item Small $DQSZ$ values (8 or 16) provide the best performance due to
-    outstanding cache locality.
-    \item Recursive task parallelism scales well when many fine-grained tasks
-    are generated.
-    \item Classical $DQSZ=N$ has very poor locality and serves as a worst-case
-    baseline.
-    \item Loop interchange and register blocking further improve performance,
-    especially for large matrices.
-\end{itemize}
-
-Heatmaps proved extremely useful for visualizing how DQSZ and thread count
-interact to determine performance.
+We find a sweet spot of DQSZ=16 for cache optimization,
+probably related to the size of the L1 cache compared to the DQSZ size in memory.
 
 \end{document}
-

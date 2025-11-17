@@ -120,7 +120,7 @@ but these results have to be added two by two to form submatrices of $C$ : this 
 
 \subsection{Iterative Version}
 
-We unroll the loops to take advantage of contiguous memory operations and potential SIMD vectorization.
+We change loop order to maximize cache re-use and we unroll the loops to take advantage of contiguous memory operations and potential SIMD vectorization.
 
 \begin{lstlisting}[language=C++]
 #pragma omp parallel for
@@ -157,7 +157,7 @@ We parallelize the recursion using OpenMP tasks:
 
 \section{Step 3: Performance Analysis}
 
-We benchmarked $N=2048$ for a range of thread counts and $DQSZ$ values.  
+We benchmarked $N=2048$ for a range of thread counts and $DQSZ$ values.
 Counters collected using \texttt{perf stat}:
 
 \begin{itemize}
@@ -166,6 +166,30 @@ Counters collected using \texttt{perf stat}:
     \item cache misses,
     \item speedup and efficiency.
 \end{itemize}
+
+We established the following single-threaded baseline execution time : 
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{c|r|r}
+\textbf{dq} & \textbf{duration (s)} \\
+\hline
+2    & 195.03 \\
+4    & 29.36  \\
+8    & 7.23   \\
+16   & 3.42   \\
+32   & 2.10   \\
+64   & 1.65   \\
+128  & 1.56   \\
+256  & 1.72   \\
+512  & 1.55   \\
+1024 & 1.51   \\
+2048 & 1.66   \\
+\end{tabular}
+\caption{Single-thread execution time as a function of dq}
+\end{table}
+
+We then performed analysis using all optimizations provided.
 
 \subsection{Heatmap 1: Execution Time}
 
@@ -178,8 +202,6 @@ Observations:
     \item Large and very small $DQSZ$ (4, 8, 2048) yields very poor performance
     \item Single threaded runs yield very poor performance
     \item $DQSZ=64$ or $DQSZ=128$ produce the best runtimes.
-    \item There seem to be a special increase in performance if the number of thread is a multiple of 4
-          (looking at nb threads=6 in the graph)
 \end{itemize}
 
 This graph shows the overall best configurations for this problem on the machine.
@@ -200,7 +222,7 @@ Interpretation:
 \end{itemize}
 
 This graph explains that for some DQSZ we take much more advantage of parallelism,
-but doesn't prove that global execution time is better ( memory bandwidth limitations). 
+but doesn't prove that global execution time is better ( because of memory bandwidth limitations). 
 
 \subsection{Heatmap 3: Cache Misses per Instruction}
 
@@ -218,5 +240,9 @@ Interpretation :
 
 We find a sweet spot of DQSZ=16 for cache optimization,
 probably related to the size of the L1 cache compared to the DQSZ size in memory.
+
+\section{Conclusion}
+
+
 
 \end{document}

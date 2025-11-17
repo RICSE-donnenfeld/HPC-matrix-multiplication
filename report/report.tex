@@ -78,7 +78,7 @@ T = \sum_{i=1}^{n} 8^{\,i}
 \]
 
 
-The maximum concurrency is the number of "leaf" tasks when all tasks have been created: 8^{\,s}
+The maximum concurrency is the number of "leaf" tasks when all tasks have been created: $8^{\,s}$
 
 \subsubsection*{Case for $N=1024$, $DQSZ=512$}
 
@@ -246,6 +246,7 @@ probably related to the size of the L1 cache compared to the DQSZ size in memory
 
 \section{Conclusion}
 
+In the end we identify the best compromise as the combination of $DQSZ=128$ and 10 threads.
 
 
 \end{document}

@@ -2,6 +2,7 @@
 \usepackage{graphicx}
 \usepackage{listings}
 \usepackage{xcolor}
+\usepackage{amsmath}
 \usepackage[margin=1.8cm]{geometry}
 \usepackage{tikz}
 
@@ -67,7 +68,7 @@ $DQSZ$ is reached.
 By analogy with the same 1 dimension problem : we find the number of required splits steps $n$ = $\log_2\!\left(\frac{N}{DQSZ}\right)$ 
 
 
-At recursion level $i$, the number of tasks is 8^{\,i}
+At recursion level $i$, the number of tasks is $8^{\,i}$
 
 The total number of tasks is the sum of the terms of the previous geometric sequence, n being the max number of splits seen above.
 Therefore : 

@@ -17,7 +17,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y texlive-full latexmk
 
       - name: Compile PDF
-        run: latexmk -pdf -interaction=nonstopmode -output-directory=out report.tex
+        run: latexmk -pdf -interaction=nonstopmode -output-directory=out report/report.tex
 
       - name: Upload PDF artifact
         uses: actions/upload-artifact@v4

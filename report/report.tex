@@ -72,8 +72,10 @@ At recursion level $i$, the number of tasks is $8^{\,i}$
 
 The total number of tasks is the sum of the terms of the previous geometric sequence, n being the max number of splits seen above.
 Therefore : 
+\[
 T = \sum_{i=1}^{n} 8^{\,i}
   = \frac{8^{\,n+1} - 8}{7}.
+\]
 
 
 The maximum concurrency is the number of "leaf" tasks when all tasks have been created: 8^{\,s}

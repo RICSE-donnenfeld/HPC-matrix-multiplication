@@ -140,23 +140,47 @@ for (int i=0; i<N; i+=2)
 \end{lstlisting}
 
 This reduces memory accesses.
-
+\newpage
 \subsection{Divide and Conquer Version}
 
 We parallelize the recursion using OpenMP tasks:
 
 \begin{lstlisting}[language=C++]
 #pragma omp parallel
-{
-  #pragma omp single
   {
-    #pragma omp task { ... }
-    #pragma omp task { ... }
-    #pragma omp task { ... }
-    #pragma omp task { ... }
+    #pragma omp single
+    {
+      #pragma omp task
+      {
+        MM_DQ<type> ( a,          b,          c,          SZ, N);   // SubCall 0
+        MM_DQ<type> ( a+SZ,       b+SZ*N,     c,          SZ, N);   // SubCall 4
+      }
+      #pragma omp task
+      {
+        MM_DQ<type> ( a,          b+SZ,       c+SZ,       SZ, N);   // SubCall 1
+        MM_DQ<type> ( a+SZ,       b+SZ*(N+1), c+SZ,       SZ, N);   // SubCall 5
+      }
+      #pragma omp task
+      {
+        MM_DQ<type> ( a+SZ*N,     b,          c+SZ*N,     SZ, N);   // SubCall 2
+        MM_DQ<type> ( a+SZ*(N+1), b+SZ*N,     c+SZ*N,     SZ, N);   // SubCall 6
+      }
+      #pragma omp task
+      {
+        MM_DQ<type> ( a+SZ*N,     b+SZ,       c+SZ*(N+1), SZ, N);   // SubCall 3
+        MM_DQ<type> ( a+SZ*(N+1), b+SZ*(N+1), c+SZ*(N+1), SZ, N);   // SubCall 7
+      }
+    }
   }
-}
 \end{lstlisting}
+
+Considering that we have Write-After-Write dependencies on the output matrix C, 
+we cannot split the computation of 8 recursive calls over 8 tasks, 
+as tasks that write in the same memory space in C will introduce data races and possibly falsify the results. 
+To avoid this, we split the 8 recursive calls across 4 tasks 
+and have every task compute the 2 calls that write the same memory space.
+This prevents data races and ensures correctness of the results, while also minimizing execution time by avoiding unnecessary synchronization.
+This is because tasks that write to the same part of the output matrix C are executed sequentially within the same task.
 
 \section{Step 3: Performance Analysis}
 
@@ -246,7 +270,13 @@ probably related to the size of the L1 cache compared to the DQSZ size in memory
 
 \section{Conclusion}
 
-In the end we identify the best compromise as the combination of $DQSZ=128$ and 10 threads.
+In the end, we identify the best compromise as the combination of $DQSZ=128$ and 10 threads.\\
+Furthermore, the additional optimization in the form of loop unrolling and loop interchanging 
+is already done from the beginning as it was provided in the MM2.h file.
+Although we experimented with differrent unrolling factors, we found that the provided 2x unrolling is optimal and higher unrolling
+factors (4x, 8x) could not yield better performance.\\
+Another form of loop interchanging was also considered unnecessary, 
+as the provided loop order (first \italic{i}, then \italic{k}, then \italic{j}) already maximizes cache re-use effectively.
 
 
 \end{document}
